@@ -1,0 +1,759 @@
+---
+title: "edx Harvardx CYO Project"
+subtitle: "Kaggle - Give me Some Credit"
+author: "Suresh Thyagarajan"
+date: "5/25/2020"
+output: 
+  pdf_document: 
+    fig_caption: yes
+    fig_height: 5
+    fig_width: 5
+    toc: yes
+documentclass: report
+urlcolor: blue
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+# Packages need are
+if(require(tidyverse)) install.packages('tidyverse', 
+repos = 'http://cran.us.r-project.org')
+if(require(ggplot2)) install.packages('ggplot2', 
+repos = 'http://cran.us.r-project.org')
+if(require(epiDisplay)) install.packages('epiDisplay', 
+repos = 'http://cran.us.r-project.org')
+if(require(dplyr)) install.packages('dplyr', 
+repos = 'http://cran.us.r-project.org')
+if(require(caret)) install.packages('caret', 
+repos = 'http://cran.us.r-project.org')
+if(require(dataCompareR)) install.packages('dataCompareR', 
+repos = 'http://cran.us.r-project.org')
+if(require(nnet)) install.packages('nnet', 
+repos = 'http://cran.us.r-project.org')
+if(require(rpart)) install.packages('rpart', 
+repos = 'http://cran.us.r-project.org')
+
+## Global chunk options
+knitr::opts_chunk$set(fig.width = 5, fig.height = 4, dpi = 300,
+                      out.width = '90%', fig.align = 'center',
+                      tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE,
+                      cache = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+## Dedication
+
+I dedicate this project to my family and friends who have been a pillar of support.
+
+
+## Acknowledgement
+
+I take this opportunity to place on record my sincere gratitude and appreciation to Prof. Rafael Irizarry for his most wonderful insights and explanations during the course. 
+
+## Introduction
+
+Banks are the fulcrum for growth in any economy. Banks act as catalysts by providing credit or loan to companies and individuals. This spurs industrial growth as well as increasing consumer spending. A loan or a credit is deemed as an asset for banking industry. Unfortunately, in the real world, not all assets perform. There are instances when loan/credit is not serviced by debtors and in some instances leads to defaults or delinquencies. The risk arising on account of lending is characterized as Credit Risk. This, is the biggest challenge that any commercial bank would face.
+
+**Wikipedia** defines *Credit Risk* as the risk of default on a debt that may arise from a borrower failing to make required payments.
+
+Banks would have to mitigate this challenge if they have to survive and sustain in the long run. Qualitative factors such as the industry, past track record,reputation of the borrower, management philosophy etc are analysed before sanctioning a loan. However, this is not emotion agnostic and does not give clarity in decision making. Hence, the need for Credit Scoring algorithms. These algorithms predict the probability of default thus enabling banks to decide on whether to grant a loan or not.
+
+This project aims to leverage on machine learning techniques such as logistics regression, decision tree and ROC Curve give predictions on probable defaulters in 2 years.
+
+At the end of it, we would also make a competition submission in the prescribed format. This competition was conducted in 2011 and has since been closed. The purpose of choosing this project is to demonstrate understanding of course material. This competition though closed, provides the bandwidth to display learning from the course.
+
+Kaggle - Give Me Some Credit     [https://www.kaggle.com/c/GiveMeSomeCredit/overview]("https://www.kaggle.com/c/GiveMeSomeCredit/overview") was originally a competition to build a most efficient model to predict delinquencies in 2 years.
+
+We use the training data-set as provided in Kagle - Give Me Some Credit [https://www.kaggle.com/c/GiveMeSomeCredit/data?select=cs-training.csv]("https://www.kaggle.com/c/GiveMeSomeCredit/data?select=cs-training.csv"). The test data-set for competition submission is [https://github.com/SureshThyagara1/CYO---Kaggle-Give-Me-Some-Credit/blob/master/Data/cs-test.csv.zip]("https://github.com/SureshThyagara1/CYO---Kaggle-Give-Me-Some-Credit/blob/master/Data/cs-test.csv.zip") 
+
+The training data-set has been used to build models.
+
+The data-sets are also available in the following github repository: [https://github.com/SureshThyagara1/CYO---Kaggle-Give-Me-Some-Credit/tree/master/Data]("https://github.com/SureshThyagara1/CYO---Kaggle-Give-Me-Some-Credit/tree/master/Data")
+
+Following PC was used for this project
+```{r pc}
+print('Operating System:')
+version
+```
+
+&nbsp;
+
+## Methods and Analysis
+### Data Import
+
+The data-sets needs to be downloaded into the working directory and unzipped for extraction and reading. Please do note, only setting up of the working directory has an absolute path. Further to that, all paths would be relative.
+
+```{r data-download}
+# First, we set the working directory
+setwd("C:\\Data Science\\CYO\\Credit Score")
+# Check the the working directory
+getwd()
+# Download the compressed folder with the dataset into the working directory
+# https://www.kaggle.com/c/GiveMeSomeCredit/data?select=cs-training.csv
+# Following codes are used to 
+# 1) unzip a compressed folder and 
+# 2) Download trainig data which is in csv format
+# Create an object called credit_data with the dowloaded dataset
+credit_data <- read.csv(unz("cs-training.csv.zip","cs-training.csv"))
+# Following codes are used to 
+# 1) unzip a compressed folder and
+# 2) download test data for competition which is in csv format
+credit_data_comp <- read.csv(unz("cs-test.csv.zip","cs-test.csv"))
+```
+&nbsp;
+
+Let's view the structure of downloaded training data-set:
+
+```{r Data Structure, cache=TRUE}
+# View structure of downloaded dataset
+str(credit_data)
+```
+
+&nbsp;
+
+### Data Processing
+
+We now explore and visualize data. Here, we identify missing data as well as outliers. The same are treated to fit into the data-set.
+
+Let's begin by having a quick overview of the downloaded data
+
+```{r Data Overview, cache=TRUE}
+# An overview of downloaded data
+head(credit_data[1:3,])
+# Names of the variables in the data
+names(credit_data)
+```
+
+&nbsp;
+
+#### Data Exploration and Visualization
+
+
+`credit_data` data set has 12 variables in total. The first variable is a serial number which does not contribute to analysis.
+
+```{r Removing X, cache=TRUE}
+# Removing "X" which is for serial number
+# "X" does not qualify to be a explaratory or a predictor variable
+credit_data$X = NULL
+# Check if the "X" variable has been removed from dataset
+names(credit_data)
+```
+&nbsp;
+
+#### Data Summary
+
+Let's explore the data-set now.
+
+1) **SeriousDlqin2yrs** - Person experienced 90 days past due delinquency or worse Values in this variable are 0 for no and 1 for yes on serious delinquency in the last 2 years. This is the outcome variable of the data-set.
+
+```{r SeriousDlqin2yrs}
+library(epiDisplay)
+tab1(credit_data$SeriousDlqin2yrs,sort.group = "decreasing",
+     cum.percent = FALSE, bar.values = "frequency", cex = 0.8, cex.names = 0.8,
+     main = "Serious Delinquency in 2 years", xlab = "Delinquency",
+     ylab = "count", col = c("blue", "yellow"))
+
+```
+&nbsp;
+
+This shows 6.7 % had serious delinquency in last 2 years
+
+2) **RevolvingUtilizationofUnsecuredLines** - Total balance on credit cards and personal lines of credit except real estate and no installment debt like car loans divided by the sum of credit limits. This is a predictor variable.
+
+```{r RevolvingUtilizationofUnsecuredLines}
+summary(credit_data$RevolvingUtilizationOfUnsecuredLines)
+plot(credit_data$RevolvingUtilizationOfUnsecuredLines,
+     col = "green4", 
+     ylab = "RevolvingUtilizationOfUnsecuredLines")
+sum(credit_data$RevolvingUtilizationOfUnsecuredLines > 1)
+```
+&nbsp;
+
+This data should be around 1 being a proportion. However, we find that a number of data (3321) have significantly high values. This outlier treatment would be dealt while handing outliers in one of the following sections. 
+
+3) **age** - Age of borrower in years. This is a predictor variable.
+```{r age}
+summary(credit_data$age)
+library(dplyr)
+library(ggplot2)
+credit_data %>% ggplot(aes(age)) + geom_density()
+```
+&nbsp;
+
+This data gives the age profile of the borrowers with the maximum number being in the 30 to 60 years range
+
+4) **NumberOfTime30-59DaysPastDueNotWorse** - Number of times borrower has been 30-59 days past due but no worse in the last 2 years. This is a predictor variable.
+```{r NumberOfTime30-59DaysPastDueNotWorse}
+summary(credit_data$NumberOfTime30.59DaysPastDueNotWorse)
+credit_data %>% ggplot(aes(NumberOfTime30.59DaysPastDueNotWorse)) + geom_density()
+table(credit_data$NumberOfTime30.59DaysPastDueNotWorse)
+```
+&nbsp;
+
+Vast majority of the borrowers did not have past dues for 30 to 59 days.
+
+5) **DebtRatio** - Monthly debt payments, alimony,living costs divided by monthly gross income. This is a predictor variable.
+```{r DebtRatio}
+summary(credit_data$DebtRatio)
+plot(credit_data$DebtRatio, col = "red", ylab = "Debt Ratio")
+sum(credit_data$DebtRatio > 1)
+```
+&nbsp;
+
+Debt ratio is a proportion/percentage. There are a possible 35137 outliers in this predictor variable. This would be dealt with in outlier treatment section.
+
+6) **MonthlyIncome** - Monthly income. This is a predictor variable.
+```{r MonthlyIncome}
+plot(credit_data$MonthlyIncome,
+main = "Monthly Income Distribution", 
+xlab = "Monthly Income", col = "turquoise")
+```
+&nbsp;
+
+**MonthlyIncome** variable consists of missing values as well as outliers. They will be dealt with in a later section.
+
+7) **NumberOfOpenCreditLinesAndLoans** - Number of Open loans (installment like car loan or mortgage) and Lines of credit (e.g. credit cards). This is a predictor variable.
+
+```{r NumberOfOpenCreditLinesAndLoans}
+summary(credit_data$NumberOfOpenCreditLinesAndLoans)
+hist(credit_data$NumberOfOpenCreditLinesAndLoans,
+ main = "Number of Open Credit Lines and loans", col = "yellow4")
+table(credit_data$NumberOfOpenCreditLinesAndLoans)
+```
+&nbsp;
+
+The number of open credit lines and loans average 8.453 and has a maximum value of 58. There are outliers in this as well with very high number of NumberOfOpenCreditLinesAndLoans. 
+
+8) **NumberOfTimes90DaysLate** - Number of times borrower has been 90 days or more past due. This is a predictor variable.
+
+```{r NumberOfTimes90DaysLate}
+summary(credit_data$NumberOfTimes90DaysLate)
+credit_data %>% ggplot(aes(NumberOfTimes90DaysLate)) + geom_density()
+table(credit_data$NumberOfTimes90DaysLate)
+```
+&nbsp;
+
+Again, a vast majority of the borrowers did not have even a single occasion when they have been past due for 90 days or more
+
+9) **NumberRealEstateLoansOrLines** - Number of mortgage and real estate loans including home equity lines of credit. This is a predictor variable.
+
+```{r NumberRealEstateLoansOrLines}
+summary(credit_data$NumberRealEstateLoansOrLines)
+library(epiDisplay)
+tab1(credit_data$NumberRealEstateLoansOrLines , 
+     sort.group = "decreasing", cum.percent = FALSE,
+     bar.values = "percent", 
+     main = "NumberRealEstateLoansOrLines", 
+     xlab = "NumberRealEstateLoansOrLines",
+     ylab = "count",horiz = TRUE, cex = .7,cex.names = 0.7)
+table(credit_data$NumberRealEstateLoansOrLines)
+```
+&nbsp;
+
+A significant majority of the borrowers had upto 2 mortgage loans. There are a few outliers with very high number of  **NumberRealEstateLoansorLines**
+
+10) **NumberOfTime60-89DaysPastDueNotWorse** - Number of times borrower has been 60-89 days past due but no worse in the last 2 years. This is a predictor variable.
+
+```{r NumberOfTime60-89DaysPastDueNotWorse}
+summary(credit_data$NumberOfTime60.89DaysPastDueNotWorse)
+credit_data %>% ggplot(aes(NumberOfTime60.89DaysPastDueNotWorse)) + geom_density()
+table(credit_data$NumberOfTime60.89DaysPastDueNotWorse)
+```
+&nbsp;
+
+Again,a vast majority do not have any record of past due in 60 to 89 days
+
+11) **NumberOfDependents** - Number of dependents in family excluding themselves (spouse, children etc.). This is a predictor variable.
+
+```{r}
+summary(credit_data$NumberOfDependents)
+library(epiDisplay)
+tab1(credit_data$NumberOfDependents, sort.group = "decreasing", cum.percent = FALSE,
+     bar.values = "percent", main = "Distribution of dependents", 
+     xlab = "Number of Dependents",
+     ylab = "count",horiz = TRUE)
+```
+&nbsp;
+
+A significant number i.e. 57.9% do not have any dependents. Also, important to note that about 2.6% values are missing in this predictor variable.
+
+#### Data Validation
+
+After having explored and visualized the data, the next step would be to check for missing values and data ranges to identify outliers. Then, they would have to be treated with either imputation or elimination to complete the data-set.
+
+##### Missing Values
+
+Identify number of missing values in data-set
+
+```{r Missing Values}
+sum(is.na(credit_data))
+```
+&nbsp;
+
+There are 33655 missing values in the train data-set. Identify, how significant as a proportion of the data-set are the missing values.
+
+```{r Proportion of Missing values}
+sum(is.na(credit_data))/(nrow(credit_data)*ncol(credit_data))
+```
+&nbsp;
+
+About 2% of the data are missing from the data-set
+
+Identify number of missing values in data-set
+
+```{r Missing values in variables}
+sapply(credit_data, function(x) sum(is.na(x)))
+```
+&nbsp;
+
+Only **MonthlyIncome** and **NumberOfDependents** have missing values.
+
+##### Treatment of Missing Values
+
+
+Proportion of missing values for "MonthlyIncome" explanatory variable.
+
+```{r MonthlyIncome missing values}
+29731/150000
+```
+&nbsp;
+About 20% of the "MonthlyIncome" variable has missing values. 
+
+```{r MonthlyIncome Summary}
+summary(credit_data$MonthlyIncome)
+```
+&nbsp;
+
+Following are critical observations for determining imputation method for missing values of **MonthlyIncome** variable
+
+* 75% of the values are 8249 or below 
+* Max value is very high - an oulier
+* Imputing with mean value distorts the MonthlyIncome of the data   set
+ 
+Hence, the preferred approach for **MonthlyIncome** variable is Median value imputations for missing values.
+
+Replace missing values with median values in **MonthlyIncome** explanatory variable
+
+```{r MonthlyIncome Imputation}
+credit_data$MonthlyIncome[is.na
+(credit_data$MonthlyIncome)]<-
+median(credit_data$MonthlyIncome,na.rm = TRUE)
+```
+&nbsp;
+
+Check if the missing values have been imputed
+
+```{r MonthlyIncome Imputation Check}
+sum(is.na(credit_data$MonthlyIncome))
+```
+&nbsp;
+
+Missing values in **MonthlyIncome** explanatory variable have been imputed successfully.
+
+
+Now, imputation of missing values of **NumberOfDependents** explanatory variable.
+
+```{r NumberofDependents Summary}
+summary(credit_data$NumberOfDependents)
+```
+&nbsp;
+
+* There are 3924 missing values in **NumberofDependents**           predictor   variable. 
+* Mean value cannot be used for imputation. Needs to be a integer.
+
+Identify unique values in **NumberOfDependents** explanatory variable
+
+```{r NumberofDependents Unique values}
+unique(credit_data$NumberOfDependents)
+```
+&nbsp;
+
+Values range from 0 to 20.
+
+Establish the frequency of each of these values
+```{r NumberOfDependents Frequency}
+table(credit_data$NumberOfDependents)
+```
+&nbsp;
+Vast majority of values are 0.
+
+```{r NumberofDependents Missing values proportion}
+sum(is.na(credit_data$NumberOfDependents))/nrow(credit_data)
+```
+&nbsp;
+
+Only 2% of the values are missing in **NumberOfDependents** variable
+
+% of **NumberOfDependents** variable values are 0 is
+```{r % NumberofDependents is 0}
+86902/150000
+```
+&nbsp;
+
+About 58% of value in this variable are 0.
+
+Impute missing values with 0
+
+```{r NumberofDependents Imputation}
+credit_data$NumberOfDependents[is.na(credit_data$NumberOfDependents)] <- 0
+sum(is.na(credit_data$NumberOfDependents))
+```
+&nbsp;
+
+##### Outlier Analysis
+
+
+Outliers in the data-set can be viewed with *boxplot* function
+
+```{r boxplot outlier}
+boxplot(credit_data, main = "Identification of Outliers")
+```
+&nbsp;
+**MonthlyIncome** & **DebtRatio** clearly have outliers. During data visualization other outliers like **RevolvingUtilizationOfUnsecuredLines, NumberOfOpenCreditLinesAndLoans** and **NumberRealEstateLoansOrLines** were also identified. Outliers can be identified and replaced using percentile method as well. 
+
+Outlier replacement for **RevolvingUtilizationOfUnsecuredLines**
+
+```{r RevolvingUtilizationOfUnsecuredLines Outlier Replace}
+# Outlier replacement for **RevolvingUtilizationOfUnsecuredLines**
+quantile(credit_data$RevolvingUtilizationOfUnsecuredLines, c(.1,.5,.8,.9,.98,.99,1))
+# Replace all values above 99th percentile with the value of 99th percentile.
+credit_data$RevolvingUtilizationOfUnsecuredLines[
+  credit_data$RevolvingUtilizationOfUnsecuredLines > 
++ quantile(credit_data$RevolvingUtilizationOfUnsecuredLines,c(.99))] <- 
++ quantile(credit_data$RevolvingUtilizationOfUnsecuredLines,c(.99))
+summary(credit_data$RevolvingUtilizationOfUnsecuredLines)
+```
+&nbsp;
+
+Outlier replacement for **DebtRatio**
+
+```{r Outlier replacement for DebtRatio}
+quantile(credit_data$DebtRatio, c(.1,.5,.8,.9,.98,.99,1))
+# Replace all values above 80th percentile with the value of 80th percentile.
+credit_data$DebtRatio[credit_data$DebtRatio > 
+  + quantile(credit_data$DebtRatio,c(.8))] <- 
+  + quantile(credit_data$DebtRatio,c(.8))
+summary(credit_data$DebtRatio)
+```
+&nbsp;
+
+Outlier replacement for **MonthlyIncome**
+
+```{r Outlier replacement for MonthlyIncome}
+quantile(credit_data$MonthlyIncome, c(.1,.5,.8,.9,.98,.99,.999,1))
+# Replace all values above 99th percentile with the value of 99th percentile.
+credit_data$MonthlyIncome[credit_data$MonthlyIncome > 
+  + quantile(credit_data$MonthlyIncome,c(.99))] <- 
+  + quantile(credit_data$MonthlyIncome,c(.99))
+summary(credit_data$MonthlyIncome)
+```
+&nbsp;
+
+Outlier replacement for **NumberOfOpenCreditLinesAndLoans**
+
+```{r Outlier replacement NumberOfOpenCreditLinesAndLoans}
+quantile(credit_data$NumberOfOpenCreditLinesAndLoans, c(.1,.5,.8,.9,.98,.99,1))
+# Replace all values above 99th percentile with the value of 99th percentile
+credit_data$NumberOfOpenCreditLinesAndLoans[credit_data$NumberOfOpenCreditLinesAndLoans > 
+ + quantile(credit_data$NumberOfOpenCreditLinesAndLoans, c(.99))] <-
+ + quantile(credit_data$NumberOfOpenCreditLinesAndLoans, c(.99))
+summary(credit_data$NumberOfOpenCreditLinesAndLoans)
+```
+&nbsp;
+
+Outlier replacement for **NumberRealEstateLoansOrLines**
+
+```{r Outlier replacement NumberRealEstateLoansOrLines}
+quantile(credit_data$NumberRealEstateLoansOrLines,c(.1,.5,.8,.9,.98,.99,.999,1))
+# Replace all values above 99th percentile with the value of 99th percentile
+credit_data$NumberRealEstateLoansOrLines[credit_data$NumberRealEstateLoansOrLines >
+  + quantile(credit_data$NumberRealEstateLoansOrLines, c(.99))] <-
+  + quantile(credit_data$NumberRealEstateLoansOrLines, c(.99))
+summary(credit_data$NumberRealEstateLoansOrLines)
+```
+&nbsp;
+
+\newpage
+
+##### Outcome variable into categorical
+
+The outcome variable is now converted into categorical variable
+
+```{r Convert SeriousDlqin2yrs}
+# Convert outcome variable to categorical
+credit_data$SeriousDlqin2yrs <- as.factor(credit_data$SeriousDlqin2yrs)
+class(credit_data$SeriousDlqin2yrs)
+```
+
+
+##### Numerical features normalization
+
+Before starting modeling process, we need to apply on all numeric variables z-score normalization (from each feature value we
+subtract mean and the result is divided by standard deviation). We will use function **scale** for this purpose.
+
+```{r Z-score normalisation, echo=TRUE, results='hide'}
+# z-score normalisation of numeric variables
+credit_data %>% mutate_if(is.numeric, scale)
+```
+*The transformed data is not printed in this report, given the size of the data-set. We use results='hide' in code chunk to hide the output while the code still runs*
+
+### Building Models
+
+Data-set will be partitioned into 70% training & 30% validation using **caret** package and **createDataPartition** function. The idea behind have 70/30 split between training and validation set is that, for size of this data-set, at 70% for training set it makes the classification model better and at 30% for test it makes the error estimates more accurate.
+
+```{r Data Partition}
+# Set the seed 
+set.seed(1, sample.kind = "Rounding")
+# Partition the data & store it in index_test
+library(caret)
+index_test <- createDataPartition(y = credit_data$SeriousDlqin2yrs,
+                                  times = 1, p = 0.7, list = FALSE)
+```
+&nbsp;
+
+Create training and validation data sets
+
+```{r training set}
+# Create train set
+train_models <- credit_data[index_test, ]
+```
+&nbsp;
+There are `r nrow(train_models)` observations in the `train_models` data-set.
+
+```{r Validation set}
+# Create validation set
+validate_models <- credit_data[-index_test,]
+```
+&nbsp;
+There are `r nrow(validate_models)` observations in the `validate_models` set.
+
+Now, let's compare both the training and validation data sets. For this, we use the package **dataCompareR** and the function **rCompare**.
+
+```{r training and validation set comparison}
+# comparison of both training and validation datasets
+library(dataCompareR)
+comparison_train_val <- rCompare(train_models, validate_models)
+comp_summ <- summary(comparison_train_val)
+comp_summ[c("datasetSummary", "ncolInAOnly", "ncolInBOnly", "ncolCommon",
+            "rowsInAOnly", "rowsInBOnly", "nrowCommon")]
+```
+&nbsp;
+
+#### Logistics Regression Model
+
+
+The first prediction model we would use is the Logistics Regression Model in the Generalized Linear Model. We use the **glm** function and the outcome variable is **SeriousDlqin2yrs**, a categorical variable.
+
+```{r glm Model Fitting}
+# Model fitting
+glm_model <- glm(SeriousDlqin2yrs ~ ., family = 'binomial', data = train_models)
+# Get the Summary
+summary(glm_model)
+```
+&nbsp;
+It is important to note that almost all features are statistically significant. 
+
+Now, let's get the prediction using **predict** function
+
+```{r glm prediction}
+# Prediction
+pred_logit <- predict(glm_model, newdata = validate_models, type = "response")
+```
+&nbsp;
+The probabilities in **pred_logit** need to be converted into predictions. For this we use cut-off of 0.5. Then, we evaluate the accuracy by using the **confusionMatrix** function in **caret** package.
+
+```{r glm confusion matrix}
+y_hat_glm <- factor(ifelse(pred_logit > 0.5, 1, 0))
+# Confusion Matrix
+library(caret)
+confusionMatrix(y_hat_glm, reference = validate_models$SeriousDlqin2yrs,
+                positive = "1")
+```
+
+Now, lets print only the overall accuracy of glm model
+
+```{r Accuracy of GLM model}
+# Accuracy of GLM model
+confusionMatrix(y_hat_glm, reference = validate_models$SeriousDlqin2yrs,
+                positive = "1")$overall["Accuracy"]
+```
+Accuracy of the model is a very good at 93%. Specificity is at 99%. However, the sensitivity is at only 5%. The NPV is 93% and PPV 58%. Also, the cut-off could be tuned to reflect the actual event rate instead of 0.5. As highlighted earlier, a vast majority of the features are statistically significant.
+
+#### Classification Tree Model
+
+
+We now build the classification tree model by using the **rpart** function from **rpart** library.
+
+```{r Decision tree model}
+# Decision tree
+library(rpart)
+# Build the model
+dec_tree <- rpart(SeriousDlqin2yrs ~ . , method='class', data=train_models)
+# Plot the decision tree
+library(rpart.plot)
+rpart.plot(dec_tree, uniform = TRUE, extra = 4)
+```
+
+Let's now make the prediction using **predict** function.
+
+```{r Decision tree prediction}
+# Predictions
+pred_tree <- predict(dec_tree,newdata = validate_models, type = 'class')
+```
+
+Now, let's evaluate the output of the Decision Tree model using **confusionMatrix** function using **caret** package.
+
+```{r Decision tree model output}
+# Confusion Matrix
+confusionMatrix(pred_tree,
+                reference=validate_models$SeriousDlqin2yrs,
+                positive='1')
+```
+
+Let's view only the accuracy of the Decision Tree model
+
+```{r Decision tree model accuracy}
+# Accuracy of Decision Tree Model
+confusionMatrix(pred_tree, reference = validate_models$SeriousDlqin2yrs,
+                positive = "1")$overall["Accuracy"]
+```
+
+Accuracy of the Decision Tree Model is a very good 93%. The specificity is a very good 99% and sensitivity is 17%. NPV is at 94% and PPV is at 55%
+
+#### Receiver Operating Characteristic (ROC) curve model 
+
+
+First, we build a Logistics Regression Model and do the model performance evaluation for the same using **ROCR**.
+
+```{r lm model for ROC curve model}
+library(nnet)
+library(tidyverse)
+# Model fitting using training dataset
+lr_model <- multinom(SeriousDlqin2yrs~.,train_models)
+# Model prediction using validation data set
+p <- predict(lr_model,validate_models)
+```
+
+The model performance is evaluated using **ROCR** package.
+
+```{r ROCR Model Evaluation}
+library(ROCR)
+pred <- predict(lr_model,newdata=validate_models, type = 'prob')
+pred <- prediction(pred,validate_models$SeriousDlqin2yrs)
+eval <- performance(pred, "acc")
+plot(eval)
+# Identification of cut-off based on eye estimate
+abline(h=0.93, v=0.40)
+eval
+```
+
+Above is an eye estimate of the cut-off.
+
+An advantage with ROC curve is that it gives performance of the model at various cut-offs.
+
+```{r ROCR Cut-off Accuracy}
+# Identifying best cut-off and accuracy
+max <- which.max(slot(eval, "y.values")[[1]])
+acc <- slot(eval, "y.values")[[1]][max]
+cut <- slot(eval, "x.values")[[1]][max]
+print(c(Accuracy = acc, Cutoff = cut))
+```
+Accuracy value is `r acc` and cut off is at `r cut`. This is not far from our earlier visual estimate.
+
+Now, let us visualize the curve performance at different cut-off values.
+
+```{r ROC curve performance}
+# ROC curve gives performance at different cut off values
+roc <- performance(pred, "tpr", "fpr")
+plot(roc, colorize = T, main = "ROC Curve", ylab = "Sensitivity", xlab = "1 - Specificity")
+abline(a=0, b=1)
+```
+
+An important aspect to note here is that, optically it is clear that the performance is much better than at a cut-off of 0.5.
+
+Now, let's estimate the Area Under the Curve(AUC) for the model.
+
+```{r AUC}
+# Area under the curve
+auc <- performance(pred, "auc")
+auc <- unlist(slot(auc, "y.values"))
+auc <- round(auc, 4)
+auc
+plot(roc, colorize = T, main = "ROC Curve", ylab = "Sensitivity", xlab = "1 - Specificity")
+abline(a=0, b=1)
+legend(.7,.5, auc, title = "AUC", cex = 0.8)
+```
+
+Area under the curve is a very good `r auc`. 
+
+\newpage
+#### Competition Submission
+
+Though this competition was closed in 2011, we generate the predicted values based on ROC Curve model.
+
+```{r Competition Submission}
+# Make predictions based on the ROCR Curve model 
+pred_comp <- predict(lr_model, credit_data_comp,type = 'prob')
+# We now, write the prediction into csv format as required for competition submission
+write.csv(pred_comp, "submission.csv")
+```
+
+We are, however, unable to validate our predictions  in competition submission, since, we are not privy to actual outcome variable.
+
+## Results Summary
+
+* **Logistics Regression Model** - Accuracy of the model is a very     good at 93%. Specificity is at 99%. However, the sensitivity is     at only 5%. The NPV is 93% and PPV 58%. 
+
+* **Decision Tree Model** - Accuracy of the Decision Tree Model is     a very good 93%. The specificity is a very good 99% and           sensitivity is 17%. NPV is at 94% and PPV is at 55%
+
+* **ROC Curve Model** - Accuracy value is `r acc` and cut off is      at `r cut`. Area under the curve is also a very good `r auc`.
+
+## Conclusion
+
+Accuracy levels have been high in all models. It is essential to predict delinquencies in 2 years more accurately than no delinquencies. Both Logistic Regression and Decision Tree approach despite high level of accuracy might fall short of predicting delinquency in 2 years in comparison to ROC Curve approach.
+
+Some of the reasons attributed for that could be:
+
+* Almost all features were statistically significant in Logistic    Regression model. The process could be further enhanced by        filtering variables, if required. For this we need to determine   *goodness of   fit* or *R-squared* of the model. 
+
+* Possible interactions of the predictor features with the          outcome variable.
+
+* Possible cross-interactions of predictor features.
+
+* A different cut-off similar to that of the actual event rate      rather than 0.5 could be used. 
+
+With an AUC of `r auc` ROC Curve model does present a very good case for the prediction model.
+
+The intent and purpose behind this project is to showcase the skill and knowledge gained during learning the course.
+
+It has to be mentioned, however, that the ROC Curve model could be further improvised by increasing the features by the following but not limited to:
+
+* Further transformations like log(features) or feature             interactions(additive, multiplicative) 
+
+* Adding features like account history, years of employment,family   status, residency status etc.
+
+This algorithm based approach is important for banks to identify potential defaulters at an early stage. Iterative improvisations on prediction models, which cater to dynamic changes evolving in the economy/society would go a long way in making the banks more safe than sorry!
+
+## References
+
+* Wikipedia, https://en.wikipedia.org/wiki/Credit_risk
+
+* Introduction to Data Science,https://rafalab.github.io/dsbook/
+
+* Writing R Scripts, http://environmentalcomputing.net/good-practice-for-writing-scripts/
+
+* Understanding AUC-ROC Curve, https://towardsdatascience.com/understanding-auc-roc-curve-68b2303cc9c5
+
+* Chunk Options, https://yihui.org/knitr/options/
+
+* MiKTex, https://miktex.org/about
+
+* RMarkdown, https://cran.r-project.org/web/packages/stationery/vignettes/Rmarkdown.pdf
+
+* Significant variables & R Squared, https://statisticsbyjim.com/regression/low-r-squared-regression/
+
+* Econometric Analysis, William H. Greene, 8th Edition
